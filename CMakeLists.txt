@@ -190,6 +190,13 @@ foreach(lib brotlicommon brotlidec brotlienc brotlicommon-static brotlidec-stati
         lib/cmake/brotli
     )
 
+    target_compile_options(${lib} PRIVATE /MP)
+    target_link_options(${lib}
+      PRIVATE
+        /INCREMENTAL:NO
+        /debug:full
+    )
+
     install(FILES ${PROJECT_BINARY_DIR}/RelWithDebInfo/${lib}.pdb DESTINATION lib CONFIGURATIONS RelWithDebInfo)
     install(FILES ${PROJECT_BINARY_DIR}/Debug/${lib}d.pdb DESTINATION lib CONFIGURATIONS Debug)
   endif()
