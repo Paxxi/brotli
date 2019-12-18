@@ -2,10 +2,12 @@
 # several CI services, such as Travis and Drone, use it.  Solaris 11
 # has 2.8.6, and it's not difficult to support if you already have to
 # support 2.8.7.
-cmake_minimum_required(VERSION 2.8.6)
+cmake_minimum_required(VERSION 3.16)
 
-project(brotli C)
+project(brotli VERSION 1.0.7 LANGUAGES C)
 
+option(BROTLI_DISABLE_TESTS "Disable tests" ON)
+option(BROTLI_DISABLE_EXECUTABLE "Don't build cli tools" ON)
 # If Brotli is being bundled in another project, we don't want to
 # install anything.  However, we want to let people override this, so
 # we'll use the BROTLI_BUNDLED_MODE variable to let them do that; just
@@ -156,12 +158,41 @@ endforeach()
 
 foreach(lib brotlicommon brotlidec brotlienc brotlicommon-static brotlidec-static brotlienc-static)
   target_link_libraries(${lib} ${LIBM_LIBRARY})
-  set_property(TARGET ${lib} APPEND PROPERTY INCLUDE_DIRECTORIES ${BROTLI_INCLUDE_DIRS})
+  target_include_directories(${lib}
+    PRIVATE
+      ${BROTLI_INCLUDE_DIRS}
+    INTERFACE
+      $<INSTALL_INTERFACE:include>
+  )
   set_target_properties(${lib} PROPERTIES
     VERSION "${BROTLI_ABI_COMPATIBILITY}.${BROTLI_ABI_AGE}.${BROTLI_ABI_REVISION}"
     SOVERSION "${BROTLI_ABI_COMPATIBILITY}"
-    POSITION_INDEPENDENT_CODE TRUE)
-  set_property(TARGET ${lib} APPEND PROPERTY INTERFACE_INCLUDE_DIRECTORIES "${BROTLI_INCLUDE_DIRS}")
+    POSITION_INDEPENDENT_CODE TRUE
+    OUTPUT_NAME ${lib}
+    OUTPUT_NAME_DEBUG ${lib}d
+    COMPILE_PDB_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}
+    COMPILE_PDB_NAME ${lib}
+    COMPILE_PDB_NAME_DEBUG ${lib}d
+    PDB_NAME ${lib}
+    PDB_NAME_DEBUG ${lib}d
+  )
+  if(NOT BROTLI_BUNDLED_MODE)
+    install(
+      TARGETS ${lib} EXPORT ${lib}
+      ARCHIVE DESTINATION lib
+      LIBRARY DESTINATION lib
+      RUNTIME DESTINATION bin
+    )
+    install(EXPORT ${lib}
+      NAMESPACE
+        brotli::
+      DESTINATION
+        lib/cmake/brotli
+    )
+
+    install(FILES ${PROJECT_BINARY_DIR}/RelWithDebInfo/${lib}.pdb DESTINATION lib CONFIGURATIONS RelWithDebInfo)
+    install(FILES ${PROJECT_BINARY_DIR}/Debug/${lib}d.pdb DESTINATION lib CONFIGURATIONS Debug)
+  endif()
 endforeach()
 
 target_link_libraries(brotlidec brotlicommon)
@@ -181,34 +212,38 @@ if(BROTLI_PARENT_DIRECTORY)
   set(BROTLI_LIBRARIES "${BROTLI_LIBRARIES}" PARENT_SCOPE)
 endif()
 
+include(CMakePackageConfigHelpers)
+write_basic_package_version_file(
+  ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config-version.cmake
+  VERSION ${PROJECT_VERSION}
+  COMPATIBILITY AnyNewerVersion
+)
+
 # Build the brotli executable
-add_executable(brotli ${BROTLI_CLI_C})
-target_link_libraries(brotli ${BROTLI_LIBRARIES_STATIC})
+if (NOT BROTLI_DISABLE_EXECUTABLE)
+  add_executable(brotli ${BROTLI_CLI_C})
+  target_link_libraries(brotli ${BROTLI_LIBRARIES_STATIC})
+endif()
 
 # Installation
 if(NOT BROTLI_BUNDLED_MODE)
-  install(
-    TARGETS brotli
-    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
-  )
-
-  install(
-    TARGETS ${BROTLI_LIBRARIES_CORE}
-    ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-    LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
-  )
-
-  install(
-    TARGETS ${BROTLI_LIBRARIES_CORE_STATIC}
-    ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-    LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
-  )
+  if(NOT BROTLI_DISABLE_EXECUTABLE)
+    install(
+      TARGETS brotli
+      RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+    )
+  endif()
 
   install(
     DIRECTORY ${BROTLI_INCLUDE_DIRS}/brotli
     DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+  )
+  install(
+    FILES
+      cmake/brotli-config.cmake
+      ${CMAKE_CURRENT_BINARY_DIR}/brotli-config-version.cmake
+    DESTINATION
+      lib/cmake/brotli
   )
 endif()
 

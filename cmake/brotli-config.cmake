@@ -1,0 +1,6 @@
+include(${CMAKE_CURRENT_LIST_DIR}/brotlicommon.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/brotlidec.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/brotlienc.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/brotlicommon-static.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/brotlidec-static.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/brotlienc-static.cmake)
